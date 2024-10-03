@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  api:
+    build:
+      context: ./src/api
+      dockerfile: Dockerfile
+    ports:
+      - 8000:8000
+    network_mode: host
+
+  web:
+    build:
+      context: ./src/web
+      dockerfile: Dockerfile
+    ports:
+      - 8501:8501
+
+    network_mode: host

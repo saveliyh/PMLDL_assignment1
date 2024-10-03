@@ -21,7 +21,7 @@ if __name__ == '__main__':
     data = data.drop('theme')
     
 
-    data = data[:100]
+    data = data
     data = data.with_columns(pl.col('text').map_elements(text_preprocess, return_dtype=list[str]))
     
     # data = data.with_columns(pl.col('rating').map_elements(lambda x: x - data['rating'].min()))
@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     train(model, train_dataloader, val_dataloader, optimizer, loss_fn, epochs=10000, ckpt_path='./src/api/model/best.pt')
     
-    model.load_state_dict(torch.load('./models/best.pt'))
+    model.load_state_dict(torch.load('./src/api/model/best.pt'))
     model.eval()
     
     print(data[0], model(torch.tensor(vocab(list(data['text'][0]))), torch.tensor([0])))

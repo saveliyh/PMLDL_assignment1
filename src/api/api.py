@@ -1,15 +1,25 @@
 import torch
 from fastapi import FastAPI
-from src.model.model import JokeEvaluationModel
-from src.preprocess.preprocess import preprocess
+from model import JokeEvaluationModel
+from preprocess import text_preprocess
+import pickle
 
 app = FastAPI()
-model = JokeEvaluationModel(vocab_size=100, embed_dim=10, num_class=2)
 
-model.load_state_dict(torch.load('./models/best.pt'))
+with open('./model/vocab', 'rb') as f:
+    vocab = pickle.load(f)
 
+model = JokeEvaluationModel(vocab_size=len(vocab), embed_dim=10)
+
+model.load_state_dict(torch.load('./model/best.pt'))
 model.eval()
 
+
 @app.get("/")
-def evaluate(text: str) -> int:
-    return model(preprocess(text))
+def evaluate(text: str) -> dict:
+    rating = float(model(torch.tensor(vocab(text_preprocess(text))), torch.tensor([0]))[0])
+    print(rating)
+    return {
+        'text': text,
+        'rating': rating
+    }
