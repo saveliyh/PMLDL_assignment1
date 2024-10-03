@@ -1,0 +1,4 @@
+nltk==3.8.1
+torchtext==0.17.0
+torch==2.2.0
+fastapi
