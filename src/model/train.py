@@ -1,21 +1,8 @@
 from src.preprocess.preprocess import text_preprocess
 import torch
 from tqdm.autonotebook import tqdm
-from src.model.model import JokeEvaluationModel
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-def collate_batch(batch):
-    label_list, text_list, offsets = [], [], [0]
-    for _label, _text in batch:
-        label_list.append(int(_label))
-        processed_text = torch.tensor(text_preprocess(_text), dtype=torch.int64)
-        text_list.append(processed_text)
-        offsets.append(processed_text.size(0))
-    label_list = torch.tensor(label_list, dtype=torch.int64)
-    offsets = torch.tensor(offsets[:-1]).cumsum(dim=0)
-    text_list = torch.cat(text_list)
-    return label_list.to(device), text_list.to(device), offsets.to(device)
 
 
 
@@ -33,25 +20,28 @@ def train_one_epoch(
         leave=True,
     )
     model.train()
-    train_loss = 0.0
+    
     for i, batch in loop:
-        labels, texts, offsets, scores, helpfulness = batch
+        targets, texts, offsets = batch
         # zero the parameter gradients
         optimizer.zero_grad()
 
 
         # forward pass
         outputs = model(texts, offsets)
+        
+        targets = targets.unsqueeze(1)
+        targets = targets.to(torch.float32)
         # loss calculation
-        loss = loss_fn(outputs, labels)
+        loss = loss_fn(outputs, targets)
         # backward pass
         loss.backward()
 
         # optimizer run
         optimizer.step()
 
-        train_loss += loss.item()
-        loop.set_postfix({"loss": train_loss/(i * len(labels))})
+        
+        loop.set_postfix({"loss": float(loss)})
 
 def val_one_epoch(
     model,
@@ -59,7 +49,7 @@ def val_one_epoch(
     loss_fn,
     epoch_num=-1,
     best_so_far=0.0,
-    best = -float('inf'),
+    best = float('inf'),
     ckpt_path='./models/best.pt'
 ):
 
@@ -69,43 +59,43 @@ def val_one_epoch(
         desc=f"Epoch {epoch_num}: val",
         leave=True,
     )
-    val_loss = 0.0
-    correct = 0
-    total = 0
+    
+    
     with torch.no_grad():
         model.eval()  # evaluation mode
         for i, batch in loop:
-            labels, texts, offsets, scores, helpfulness = batch
+            targets, texts, offsets = batch
 
             # forward pass
             outputs = model(texts, offsets)
+
+            targets = targets.unsqueeze(1)
+            targets = targets.to(torch.float32)
             # loss calculation
-            loss = loss_fn(outputs, labels)
+            loss = loss_fn(outputs, targets)
 
-            # _, predicted = outputs
-            total += len(labels)
-            correct += (outputs.argmax(1) == labels).sum().item()
+            
+            loop.set_postfix({"mse": float(loss)})
 
-            val_loss += loss.item()
-            loop.set_postfix({"loss": val_loss/total, "acc": correct / total})
-
-        if correct / total > best:
+        if loss < best:
             torch.save(model.state_dict(),ckpt_path)
-            return correct / total
+            return loss
 
     return best_so_far
 
-def train(model, train_dataloader, val_dataloader, optimizer, loss_fn, epochs=10):
-    best = float('-nf')
-    prev_best = float('-inf')
+def train(model, train_dataloader, val_dataloader, optimizer, loss_fn, epochs=10, ckpt_path='./models/best.pt'):
+    best = float('inf')
+    prev_best = best
     counter = 0
     for epoch in range(epochs):
         train_one_epoch(model, train_dataloader, optimizer, loss_fn, epoch_num=epoch)
-        best = val_one_epoch(model, val_dataloader, loss_fn, epoch, best_so_far=best)
-        if prev_best == best:
+        best = val_one_epoch(model, val_dataloader, loss_fn, epoch, best_so_far=best, ckpt_path=ckpt_path)
+        if prev_best - best <= 0.00001:
+            
             counter+=1
         else:
             counter=0
+        if best < prev_best:
             prev_best = best
         if counter >= 5:
             break

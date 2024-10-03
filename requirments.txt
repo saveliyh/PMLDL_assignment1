@@ -1,4 +1,8 @@
 nltk==3.8.1
+torch
 torchtext==0.17.0
-torch==2.2.0
 fastapi
+scikit-learn
+polars
+numpy < 2.0.0   
+streamlit
