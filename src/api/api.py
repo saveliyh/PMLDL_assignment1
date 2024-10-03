@@ -3,6 +3,10 @@ from fastapi import FastAPI
 from model import JokeEvaluationModel
 from preprocess import text_preprocess
 import pickle
+import nltk
+
+nltk.download('punkt_tab')
+
 
 app = FastAPI()
 
